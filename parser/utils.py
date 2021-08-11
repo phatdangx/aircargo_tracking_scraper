@@ -99,3 +99,26 @@ def get_ek_info(tracking_number):
     )
     return page.text
     #soup = BeautifulSoup(page.text, 'html.parser')
+
+
+def get_qr_info(tracking_number):
+    url = "https://freight.qantas.com/tracking/journey/{}".format(tracking_number)
+    r = requests.get(url=url)
+    print(1111)
+    resp = {}
+    if r.status_code == 200:
+        data = r.json()
+        resp = {
+            "tracking_number": tracking_number,
+            "origin": data["trackingShipment"]["originStationCode"],
+            "destination": data["trackingShipment"]["destinationStationCode"],
+            "departure_flight_number": data["inTransitStage"]["trackingStageCards"][0]["latestTrackingEvent"]["carrierCode"] + 
+                data["inTransitStage"]["trackingStageCards"][0]["latestTrackingEvent"]["flightNumber"],
+            "departure_date": data["inTransitStage"]["trackingStageCards"][0]["latestTrackingEvent"]["eventDateTime"],
+            "arrival_date": data["preDeliveryStage"]["trackingStageCards"][0]["latestTrackingEvent"]["eventDateTime"],
+            "arrival_flight_number": data["preDeliveryStage"]["trackingStageCards"][0]["latestTrackingEvent"]["carrierCode"] + 
+                data["preDeliveryStage"]["trackingStageCards"][0]["latestTrackingEvent"]["flightNumber"],
+            "number_of_package": data["trackingShipment"]["shipmentCargo"]["pieces"],
+            "weight": data["trackingShipment"]["shipmentCargo"]["weight"]
+        }
+    return resp

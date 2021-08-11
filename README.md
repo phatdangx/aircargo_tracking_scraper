@@ -12,19 +12,14 @@ Used to get the package information from user input
 GET /get_info_by_tracking/131-57483344
 ```json
 {
-    "tracking_number": "131-57483344",
-    "weight": "125.0",
-    "origin": "NRT",
-    "destination": "MEL",
-    "number_of_package": "1",
-    "shipment_history": [
-        {
-            "from": "NRT",
-            "to": "MEL",
-            "flight_number": "JL773",
-            "arrive_date": "19JUL",
-            "departure_date": "19JUL",
-        }
-    ]
+    "arrival_date": "27-Jul-2021 18:06:41",
+    "arrival_flight_number": "QF7586",
+    "departure_date": "25-Jul-2021 17:30:27",
+    "departure_flight_number": "QF7586",
+    "destination": "SYD",
+    "number_of_package": "3",
+    "origin": "ORD",
+    "tracking_number": "081-56878360",
+    "weight": "6300.0"
 }
 ```
