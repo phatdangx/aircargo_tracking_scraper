@@ -1,6 +1,3 @@
 flask
-Flask-SQLAlchemy
-pymysql
-flask-marshmallow
-marshmallow
-marshmallow_sqlalchemy
+requests
+beautifulsoup4
