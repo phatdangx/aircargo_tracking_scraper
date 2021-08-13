@@ -139,8 +139,8 @@ def get_nz_info(tracking_number):
                 {
                     "origin": data["segments"][0]["origin"],
                     "destination": data["segments"][0]["destination"],
-                    "arrival_date": "{} {}:00".format(data["segments"][0]["eta"][:11].replace(" ", "-").upper(), data["segments"][0]["eta"][11:]),
-                    "departure_date": "{} {}:00".format(data["segments"][0]["etd"][:11].replace(" ", "-").upper(), data["segments"][0]["etd"][11:]),
+                    "arrival_date": "{} {}:00".format(data["segments"][0]["eta"][:11].replace(" ", "-").upper(), data["segments"][0]["eta"][11:] if len(data["segments"][0]["eta"]) > 12 else "00:00"),
+                    "departure_date": "{} {}:00".format(data["segments"][0]["etd"][:11].replace(" ", "-").upper(), data["segments"][0]["etd"][11:] if len(data["segments"][0]["etd"]) > 12 else "00:00"),
                     "arrival_flight_number": data["segments"][0]["flight"],
                     "departure_flight_number": data["segments"][0]["flight"],
                 }
