@@ -33,11 +33,12 @@ def get_japan_airline(tracking_number):
             "tracking_number": tracking_number,
             "origin": origin,
             "destination": dest,
-            "flight_number": flight_num,
+            "departure_flight_number": flight_num,
             "departure_date": dept_date,
-            "arrive_date": arr_date,
+            "arrival_date": arr_date,
+            "arrival_flight_number": flight_num,
             "number_of_package": number_of_package,
-            "weight": weight
+            "weight": str(weight)
         }
     else:
         resp = {}
@@ -57,21 +58,20 @@ def get_cx_info(tracking_number):
             "origin": data["Origin"],
             "destination": data["Destination"],
             "number_of_package": data["QDPieces"],
-            "weight": data["QDWeight"]
+            "weight": str(data["QDWeight"])
         }
-        shipment_history = []
+        bkd_stage = []
         for stage in data["FreightStatusDetails"]:
             if stage["StatusCode"] == "BKD":
-                shipment_history.append(
-                    {
-                        "from": stage["MDPort1"],
-                        "to": stage["MDPort2"],
-                        "flight_number": stage["MDCarrierCode"] + stage["MDFlightNum"],
-                        "departure_date": time.strftime('%d %b %Y  %H:%M:%S', time.gmtime(stage["DTTime"]["Seconds"])),
-                        "arrive_date": time.strftime('%d %b %Y  %H:%M:%S', time.gmtime(stage["ATTime"]["Seconds"]))
-                    }
-                )
-        resp["shipment_history"] = shipment_history
+                bkd_stage.append(stage)
+        departure_stage = bkd_stage[0]
+        arrival_stage = bkd_stage[-1]
+        resp.update({
+            "departure_flight_number": departure_stage["MDCarrierCode"] + departure_stage["MDFlightNum"],
+            "departure_date": time.strftime('%d-%b-%Y %H:%M:%S', time.gmtime(departure_stage["DTTime"]["Seconds"])).upper(),
+            "arrival_date": time.strftime('%d-%b-%Y %H:%M:%S', time.gmtime(arrival_stage["ATTime"]["Seconds"])).upper(),
+            "arrival_flight_number": arrival_stage["MDCarrierCode"] + arrival_stage["MDFlightNum"]
+        })
     return resp
 
 
@@ -104,7 +104,6 @@ def get_ek_info(tracking_number):
 def get_qr_info(tracking_number):
     url = "https://freight.qantas.com/tracking/journey/{}".format(tracking_number)
     r = requests.get(url=url)
-    print(1111)
     resp = {}
     if r.status_code == 200:
         data = r.json()
@@ -114,11 +113,50 @@ def get_qr_info(tracking_number):
             "destination": data["trackingShipment"]["destinationStationCode"],
             "departure_flight_number": data["inTransitStage"]["trackingStageCards"][0]["latestTrackingEvent"]["carrierCode"] + 
                 data["inTransitStage"]["trackingStageCards"][0]["latestTrackingEvent"]["flightNumber"],
-            "departure_date": data["inTransitStage"]["trackingStageCards"][0]["latestTrackingEvent"]["eventDateTime"],
-            "arrival_date": data["preDeliveryStage"]["trackingStageCards"][0]["latestTrackingEvent"]["eventDateTime"],
+            "departure_date": data["inTransitStage"]["trackingStageCards"][0]["latestTrackingEvent"]["eventDateTime"].upper(),
+            "arrival_date": data["preDeliveryStage"]["trackingStageCards"][0]["latestTrackingEvent"]["eventDateTime"].upper(),
             "arrival_flight_number": data["preDeliveryStage"]["trackingStageCards"][0]["latestTrackingEvent"]["carrierCode"] + 
                 data["preDeliveryStage"]["trackingStageCards"][0]["latestTrackingEvent"]["flightNumber"],
             "number_of_package": data["trackingShipment"]["shipmentCargo"]["pieces"],
             "weight": data["trackingShipment"]["shipmentCargo"]["weight"]
         }
+    return resp
+
+
+def get_nz_info(tracking_number):
+    url = "https://www.airnewzealandcargo.com/feeds/cargo-status?awb={}".format(tracking_number)
+    r = requests.get(url=url)
+    resp = {}
+    if r.status_code == 200:
+        data = r.json()
+        resp = {
+            "tracking_number": tracking_number,
+            "weight": data["details"]["weight"],
+            "number_of_package": data["details"]["pieces"]
+        }
+        if len(data["segments"]) == 1:
+            resp.update(
+                {
+                    "origin": data["segments"][0]["origin"],
+                    "destination": data["segments"][0]["destination"],
+                    "arrival_date": "{} {}:00".format(data["segments"][0]["eta"][:11].replace(" ", "-").upper(), data["segments"][0]["eta"][11:]),
+                    "departure_date": "{} {}:00".format(data["segments"][0]["etd"][:11].replace(" ", "-").upper(), data["segments"][0]["etd"][11:]),
+                    "arrival_flight_number": data["segments"][0]["flight"],
+                    "departure_flight_number": data["segments"][0]["flight"],
+                }
+            )
+        else:
+            depart_stage = data["segments"][0]
+            arr_stage = data["segments"][-1]
+            resp.update(
+                {
+                    "origin": depart_stage["origin"],
+                    "destination": arr_stage["destination"],
+                    "arrival_date": "{} {}:00".format(arr_stage["eta"][:11].replace(" ", "-").upper(), arr_stage["eta"][11:] if len(arr_stage) > 12 else "00:00"),
+                    "departure_date": "{} {}:00".format(depart_stage["etd"][:11].replace(" ", "-").upper(), depart_stage["etd"][11:] if len(depart_stage) > 12 else "00:00"),
+                    "arrival_flight_number": arr_stage["flight"],
+                    "departure_flight_number": depart_stage["flight"],
+                }
+            )
+        return resp
     return resp

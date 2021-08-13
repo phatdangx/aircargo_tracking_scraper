@@ -18,6 +18,8 @@ def get_tracking_url(tracking_number):
         resp = get_ek_info(tracking_number)
     elif awb_code == "081":
         resp = get_qr_info(tracking_number)
+    elif awb_code == "086":
+        resp = get_nz_info(tracking_number)
     return make_response(jsonify(resp))
 
 if __name__ == '__main__':
