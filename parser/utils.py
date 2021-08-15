@@ -160,3 +160,31 @@ def get_nz_info(tracking_number):
             )
         return resp
     return resp
+
+
+def get_ua_info(tracking_number):
+    url = "https://www.unitedcargo.com/TrackingServlet?BranchCode=&CompanyName=Test&DocumentNumbers={}".format(tracking_number)
+    r = requests.get(url=url)
+    if r.status_code == 200:
+        data= r.json()[0]
+        resp = {}
+        if "MasterConsignment" in data:
+            resp.update({
+                "origin": data["MasterConsignment"]["Origin"],
+                "destination": data["MasterConsignment"]["Destination"],
+                "weight": str(data["MasterConsignment"]["Weight"]),
+                "number_of_package": data["MasterConsignment"]["Pieces"]
+            })
+            if "ReportedStatusList" in data and len(data["ReportedStatusList"]) > 0:
+                for item in data["ReportedStatusList"]:
+                    if item["Station"] == resp["destination"] and item["StatusCode"] == "ARR":
+                        resp.update({
+                            "arrival_date": item["StatusDateTime"],
+                            "arrival_flight_number": item["FlightSuffix"] + item["FlightNumber"]
+                        })
+                    elif item["Station"] == resp["origin"] and item["StatusCode"] == "DEP":
+                        resp.update({
+                            "departure_date": item["StatusDateTime"],
+                            "departure_flight_number": item["FlightSuffix"] + item["FlightNumber"]
+                        })
+    return resp

@@ -20,6 +20,8 @@ def get_tracking_url(tracking_number):
         resp = get_qr_info(tracking_number)
     elif awb_code == "086":
         resp = get_nz_info(tracking_number)
+    elif awb_code == "016":
+        resp = get_ua_info(tracking_number)
     return make_response(jsonify(resp))
 
 if __name__ == '__main__':
