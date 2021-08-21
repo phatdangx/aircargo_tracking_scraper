@@ -188,3 +188,67 @@ def get_ua_info(tracking_number):
                             "departure_flight_number": item["FlightSuffix"] + item["FlightNumber"]
                         })
     return resp
+
+def get_mh_info(tracking_number):
+    url = "https://www.maskargo.com/online_awb_info/index.php"
+    r = requests.post(
+        url=url,
+        data={
+            "code": "232",
+            "awb": tracking_number[4:]
+        }
+    )
+    resp = {}
+    if r.status_code == 200:
+        try:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            awb_td = soup.find_all("td", class_="awb-no")[0]
+            origin_td= awb_td.next_sibling
+            dest_td = origin_td.next_sibling
+            package_num_td = dest_td.next_sibling
+            weight_td = package_num_td.next_sibling
+            resp = {
+                "tracking_number": tracking_number,
+                "origin": origin_td.text,
+                "destination": dest_td.text,
+                "number_of_package": package_num_td.text,
+                "weight": weight_td.text
+            }
+            detail_table = soup.find_all("table")[1]
+            tr_list = detail_table.find_all("tr")
+            flight_data = []
+            for tr in tr_list[2:]:
+                tds = tr.find_all("td")
+                flight_data.append({
+                    "code": tds[0].text,
+                    "status": tds[1].text,
+                    "from": tds[2].text,
+                    "to": tds[3].text,
+                    "carrier": tds[4].text,
+                    "pieces": tds[5].text,
+                    "weight": tds[6].text,
+                    "sdt": tds[7].text,
+                    "sat": tds[8].text
+                })
+            for data in flight_data:
+                if data["status"] == "FLIGHT DEPARTED" and data["from"] == resp["origin"]:
+                    carrier_flt = data["carrier"].split("/")
+                    flt_num = carrier_flt[0]
+                    dep_date = carrier_flt[1]
+                    resp.update({
+                        "departure_date": "{} {} 20{} 00:00:00".format(dep_date[:2],dep_date[2:5],dep_date[5:]),
+                        "departure_flight_number": flt_num
+                    })
+                if data["status"] == "FLIGHT DEPARTED" and data["to"] == resp["destination"]:
+                    carrier_flt = data["carrier"].split("/")
+                    flt_num = carrier_flt[0]
+                    dep_date = carrier_flt[1]
+                    resp.update({
+                        "arrival_date": "{} {} 20{} 00:00:00".format(dep_date[:2],dep_date[2:5],dep_date[5:]),
+                        "arrival_flight_number": flt_num
+                    })
+            return resp
+        except Exception as e:
+            print(str(e))
+            return resp
+    return resp
