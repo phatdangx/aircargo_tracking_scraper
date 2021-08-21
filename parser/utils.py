@@ -252,3 +252,48 @@ def get_mh_info(tracking_number):
             print(str(e))
             return resp
     return resp
+
+def get_ups_info(tracking_number):
+    url = "https://aircargo.ups.com/en-US/Tracking?awbPrefix=406&awbNumber={}".format(tracking_number[4:])
+    r = requests.get(url)
+    resp = {}
+    if r.status_code == 200:
+        try:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            track_header = soup.find("div", id="TrackHeader")
+            track_header_left = track_header.find("div", class_="text-left").find_all("strong")
+            track_header_right = track_header.find("div", class_="text-right").find("p").text.split(" ")
+            resp = {
+                "tracking_number": tracking_number,
+                "origin": track_header_left[1].text.replace(" ",""),
+                "destination": track_header_left[2].text.replace(" ",""),
+                "number_of_package": track_header_right[1],
+                "weight": ""
+            }
+            flight_data =[]
+            table = soup.find("div", id="tabular").find("table")
+            tr_list = table.find_all("tr")
+            for tr in tr_list[1:]:
+                tds = tr.find_all("td")
+                flight_data.append(
+                    {
+                        "status": tds[0].text,
+                        "station": tds[1].text,
+                        "flight": tds[2].text,
+                        "event_time": tds[4].text
+                    }
+                )
+            for data in flight_data:
+                if data["status"] == "Departed" and data["station"] == resp["origin"]:
+                    resp.update({
+                        "departure_flight_number": data["flight"].split(" ")[0],
+                        "departure_date": data["event_time"]
+                    })
+                if data["status"] == "Arrived" and data["station"] == resp["destination"]:
+                    resp.update({
+                        "arrival_flight_number": data["flight"].split(" ")[0],
+                        "arrival_date": data["event_time"]
+                    })
+        except Exception as e:
+            return resp
+    return resp
