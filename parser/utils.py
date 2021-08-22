@@ -76,19 +76,22 @@ def get_cx_info(tracking_number):
 
 
 def get_ek_info(tracking_number):
-    r = requests.get("https://www.skycargo.com/shipping-services/track-shipments?type=AWB&id=176-28979020")
+    r = requests.get("https://www.skycargo.com/shipping-services/track-shipments?type=AWB&id={}".format(tracking_number))
     cookies = r.cookies.get_dict()
     token = cookies.get("__RequestVerificationToken")
     url = "https://www.skycargo.com/eksc/Surface/TrackShipment/TrackShipmentResult?Length=13"
+    soup=BeautifulSoup(r.text, 'html.parser')
+    data_verification_token=soup.find("input",attrs={"name":"__RequestVerificationToken"})["value"]
     data = {
-        "__RequestVerificationToken": token,
+        "__RequestVerificationToken": data_verification_token,
         "search-opt":"AWB",
         "awbpre":176,
-        "docNumber":28979020,
+        "docNumber":tracking_number[4:],
         "pageid":19386,
         "TrackShip": False
     }
     headers = {
+        "cookie": "__RequestVerificationToken={}".format(token),
         "content-type": "application/x-www-form-urlencoded"
     }
     page = requests.post(
@@ -97,8 +100,46 @@ def get_ek_info(tracking_number):
         headers=headers,
         cookies=cookies
     )
-    return page.text
-    #soup = BeautifulSoup(page.text, 'html.parser')
+    resp = {}
+    try:
+        if page.status_code == 200:
+            soup = BeautifulSoup(page.text, 'html.parser')
+            left_box_div = soup.find("div", class_="left-box").find_all("div")
+            resp = {
+                "tracking_number": tracking_number,
+                "origin": left_box_div[2].find_all("span")[1].text.replace(" ","").replace("\r\n",""),
+                "destination": left_box_div[3].find_all("span")[1].text.replace(" ","").replace("\r\n",""),
+                "number_of_package": left_box_div[4].find_all("span")[1].text.replace(" ","").replace("\r\n",""),
+                "weight": left_box_div[5].find_all("span")[1].text.replace(" ","").replace("\r\n","").replace("K","")
+            }
+            right_box_tr = soup.find("div", class_="right-box").find_all("tr")
+            flight_data = []
+            for tr in right_box_tr:
+                tds = tr.find_all("td")
+                date = tds[2].find_all("div")[1].find("span", class_="date-time")
+                src_destn = tds[2].find_all("div")[1].find("span", class_="src-destn")
+                flight_data.append({
+                    "status": tds[0].text.replace(" ","").replace("\r","").replace("\n",""),
+                    "port": tds[2].find_all("div")[0].text.replace(" ","").replace("\r","").replace("\n",""),
+                    "time": date.text if date else "", 
+                    "flight_no": src_destn.text.split(" ")[0] if src_destn else ""
+                })
+            for data in flight_data:
+                if data["port"] == resp["destination"] and data["status"].upper() == "ARRIVED":
+                    resp.update({
+                        "arrival_date": data["time"],
+                        "arrival_flight_number": data["flight_no"]
+                    })
+                if data["port"] == resp["origin"] and data["status"].upper() == "DEPARTED":
+                    resp.update({
+                        "departure_date": data["time"],
+                        "departure_flight_number": data["flight_no"]
+                    })
+            return resp
+        else:
+            page.raise_for_status()
+    except Exception as e:
+        return resp
 
 
 def get_qr_info(tracking_number):
@@ -189,6 +230,7 @@ def get_ua_info(tracking_number):
                         })
     return resp
 
+
 def get_mh_info(tracking_number):
     url = "https://www.maskargo.com/online_awb_info/index.php"
     r = requests.post(
@@ -253,6 +295,7 @@ def get_mh_info(tracking_number):
             return resp
     return resp
 
+
 def get_ups_info(tracking_number):
     url = "https://aircargo.ups.com/en-US/Tracking?awbPrefix=406&awbNumber={}".format(tracking_number[4:])
     r = requests.get(url)
@@ -297,6 +340,7 @@ def get_ups_info(tracking_number):
         except Exception as e:
             return resp
     return resp
+
 
 def get_ci_info(tracking_number):
     authen_url = "https://cargo.china-airlines.com/ccnetv2/content/manage/ShipmentTracking.aspx"
