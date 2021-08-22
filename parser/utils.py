@@ -297,3 +297,65 @@ def get_ups_info(tracking_number):
         except Exception as e:
             return resp
     return resp
+
+def get_ci_info(tracking_number):
+    authen_url = "https://cargo.china-airlines.com/ccnetv2/content/manage/ShipmentTracking.aspx"
+    authen_r = requests.get(authen_url)
+    resp = {}
+    if authen_r.status_code == 200:
+        try:
+            authen_soup = BeautifulSoup(authen_r.text, 'html.parser')
+            authen_state_token = authen_soup.find("input", id="__VIEWSTATE")["value"]
+            if authen_state_token:
+                url = "https://cargo.china-airlines.com/ccnetv2/content/manage/ShipmentTracking.aspx"
+                r = requests.post(
+                    url=url,
+                    data = {
+                        "__VIEWSTATE": authen_state_token,
+                        "ctl00$ContentPlaceHolder1$txtAwbPfx": 297,
+                        "ctl00$ContentPlaceHolder1$txtAwbNum": tracking_number[4:],
+                        "ctl00$ContentPlaceHolder1$btnSearch": "Search",
+                        "ctl00$hdnLogPath": "/ccnetv2/content/home/addLog.ashx",
+                        "ctl00$hdnProgName": "/ccnetv2/content/manage/shipmenttracking.aspx"
+                    }
+                )
+                if r.status_code == 200:
+                    soup = BeautifulSoup(r.text, 'html.parser')
+                    detail_div = soup.find("div",id="ContentPlaceHolder1_div_AW_detail")
+                    awd_blacks = detail_div.find_all(class_="AWd_black")
+                    origin = awd_blacks[1].span.text
+                    dest = awd_blacks[2].span.text
+                    awd_blues= detail_div.find_all(class_="AWd_blue")
+                    num_of_packages = awd_blues[1].span.text
+                    weight = awd_blues[2].span.text.replace(" KG","")
+                    resp = {
+                        "tracking_number": tracking_number,
+                        "origin": origin,
+                        "destination": dest,
+                        "number_of_package": num_of_packages,
+                        "weight": weight
+                    }
+                    flight_info_table = soup.find_all("table")[1]
+                    trs = flight_info_table.find_all("tr")
+                    flight_data = []
+                    for tr in trs[1:]:
+                        tds = tr.find_all("td")
+                        flight_data.append({
+                            "status": tds[0].text.replace("\n",""),
+                            "flight_num": tds[1].text.replace("\n",""),
+                            "dep_port": tds[2].find_all("span")[0].text,
+                            "dep_date": tds[2].find_all("span")[1].text,
+                            "arr_port": tds[3].find_all("span")[0].text,
+                            "arr_date": tds[3].find_all("span")[1].text,
+                        })
+                    resp.update({
+                        "departure_date": flight_data[len(flight_data)-1]["dep_date"],
+                        "departure_flight_number": flight_data[len(flight_data)-1]["flight_num"],
+                        "arrival_date": flight_data[0]["arr_date"],
+                        "arrival_flight_num": flight_data[0]["flight_num"]
+                    })
+                else: 
+                    r.raise_for_status()
+        except Exception as e:
+            return resp
+    return resp

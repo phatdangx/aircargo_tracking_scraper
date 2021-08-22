@@ -26,6 +26,8 @@ def get_tracking_url(tracking_number):
         resp = get_mh_info(tracking_number)
     elif awb_code == "406":
         resp = get_ups_info(tracking_number)
+    elif awb_code == "297":
+        resp = get_ci_info(tracking_number)
     return make_response(jsonify(resp))
 
 if __name__ == '__main__':
