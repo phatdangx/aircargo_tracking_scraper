@@ -403,3 +403,76 @@ def get_ci_info(tracking_number):
         except Exception as e:
             return resp
     return resp
+
+
+def get_sq_info(tracking_number):
+    authen_url = url ="http://www.siacargo.com/ccn/ShipmentTrack.aspx"
+    authen_r = requests.get(authen_url)
+    soup=BeautifulSoup(authen_r.text, 'html.parser')
+    view_state = soup.find("input",attrs={"name":"__VIEWSTATE"})["value"]
+    view_state_generator = soup.find("input",attrs={"name":"__VIEWSTATEGENERATOR"})["value"]
+    event_validation = soup.find("input",attrs={"name":"__EVENTVALIDATION"})["value"]
+    user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36"
+    headers = {
+        "user-agent": user_agent,
+        "content-type": "application/x-www-form-urlencoded"
+    }
+    data = {
+        "__VIEWSTATE": view_state,
+        "__VIEWSTATEGENERATOR": view_state_generator,
+        "__EVENTVALIDATION": event_validation,
+        "Prefix1": 618,
+        "Suffix1": tracking_number[4:],
+        "hdTransformSource":"FSUTop.xsl",
+        "__ASYNCPOST": True,
+        "btnQuery": "Submit"
+    }
+    page = requests.post(
+        url=url,
+        data=data,
+        headers=headers
+    )
+    resp = {}
+    try:
+        if page.status_code == 200:
+            soup = BeautifulSoup(page.text, 'html.parser')
+            tables = soup.find_all("table")
+            sumary_table = tables[1]
+            sumary_trs = sumary_table.find_all("tr")
+            resp.update({
+                "tracking_number": tracking_number,
+                "origin": sumary_trs[1].find_all("td")[0].contents[2],
+                "number_of_package": sumary_trs[1].find_all("td")[1].contents[2],
+                "destination": sumary_trs[2].find_all("td")[0].contents[2],
+                "weight": sumary_trs[2].find_all("td")[1].contents[2].replace("kg\r\n","")
+            })
+            flight_data = []
+            for table in tables:
+                trs = table.find_all("tr", class_="result-row")
+                if len(trs) > 0:
+                    tds = trs[0].find_all("td")
+                    if len(tds) == 7:
+                        flight_data.append({
+                            "from": tds[0].text,
+                            "to": tds[1].text,
+                            "flight_no": tds[2].text,
+                            "etd": tds[3].text,
+                            "eta": tds[4].text,
+                            "status": tds[5].text
+                        })
+            for data in flight_data:
+                if data["from"] == resp["origin"]:
+                    resp.update({
+                        "departure_date": data["etd"],
+                        "departure_flight_number": data["flight_no"]
+                    })
+                if data["to"] == resp["destination"]:
+                    resp.update({
+                        "arrival_date": data["eta"],
+                        "arrival_flight_number": data["flight_no"]
+                    })
+            return resp
+        else:
+            page.raise_for_status()
+    except Exception as e:
+        return resp
