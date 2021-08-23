@@ -405,7 +405,7 @@ def get_ci_info(tracking_number):
     return resp
 
 
-def get_sq_info(tracking_number):
+def get_sia_info(tracking_number):
     authen_url = url ="http://www.siacargo.com/ccn/ShipmentTrack.aspx"
     authen_r = requests.get(authen_url)
     soup=BeautifulSoup(authen_r.text, 'html.parser')

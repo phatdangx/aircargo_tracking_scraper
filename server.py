@@ -29,7 +29,7 @@ def get_tracking_url(tracking_number):
     elif awb_code == "297":
         resp = get_ci_info(tracking_number)
     elif awb_code == "618":
-        resp = get_sq_info(tracking_number)
+        resp = get_sia_info(tracking_number)
     return make_response(jsonify(resp))
 
 if __name__ == '__main__':
