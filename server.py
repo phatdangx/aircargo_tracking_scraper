@@ -32,6 +32,8 @@ def get_tracking_url(tracking_number):
         resp = get_sia_info(tracking_number)
     elif awb_code == "014":
         resp = get_ca_info(tracking_number)
+    elif awb_code == "157":
+        resp = get_qa_info(tracking_number)
     return make_response(jsonify(resp))
 
 if __name__ == '__main__':

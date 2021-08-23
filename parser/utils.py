@@ -534,3 +534,74 @@ def get_ca_info(tracking_number):
             r.raise_for_status()
     except Exception as e:
         return resp
+
+
+def get_qa_info(tracking_number):
+    authen_url= "https://www.qrcargo.com/trackshipment"
+    auth = requests.get(authen_url)
+    cookies = auth.cookies.get_dict()
+    url = "https://www.qrcargo.com/doTrackShipmentsAction"
+    data = {
+        "cargoTrackingRequestSOs":[
+            {
+                "documentType":"MAWB",
+                "documentPrefix":"157",
+                "documentNumber":tracking_number[4:]
+            }
+        ]
+    }
+    user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36"
+    headers = {
+        "user-agent": user_agent,
+        "cookie": "BIGipServerqrcargo-http-pool={};SERVICE_REQUEST_ID={};TS01ada904={}".format(
+            cookies["BIGipServerqrcargo-http-pool"],
+            cookies["SERVICE_REQUEST_ID"],
+            cookies["TS01ada904"]
+        )
+
+    }
+    r = requests.post(
+        url=url,
+        json=data,
+        headers=headers,
+        cookies=cookies
+    )
+    resp = {}
+    try:
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            div = soup.find("div", class_="table-responsive")
+            trs = div.find_all("tr")
+            info_tr = trs[1:]
+            if len(info_tr) > 1 :
+                depart = info_tr[1].find_all("td")
+                arr = info_tr[len(info_tr) - 1].find_all("td")
+                resp = {
+                    "tracking_number": tracking_number,
+                    "origin": depart[4].text.replace("\n","").replace(" ","").split("-")[0],
+                    "destination": arr[4].text.replace("\n","").replace(" ","").split("-")[1],
+                    "weight": depart[6].text,
+                    "number_of_package": depart[5].text,
+                    "departure_date": "{} 00:00:00".format(depart[1].text.replace("-", " ").upper()),
+                    "departure_flight_number": depart[0].text,
+                    "arrival_date": "{} 00:00:00".format(arr[1].text.replace("-", " ").upper()),
+                    "arrival_flight_number": arr[0].text
+                }
+            else:
+                info = info_tr[1].find_all("td")
+                resp = {
+                    "tracking_number": tracking_number,
+                    "origin": info[4].text.replace("\n","").replace(" ","").split("-")[0],
+                    "destination": info[4].text.replace("\n","").replace(" ","").split("-")[1],
+                    "weight": info[6].text,
+                    "number_of_package": info[5].text,
+                    "departure_date": "{} 00:00:00".format(info[1].text.replace("-", " ").upper()),
+                    "departure_flight_number": info[0].text,
+                    "arrival_date": "{} 00:00:00".format(info[1].text.replace("-", " ").upper()),
+                    "arrival_flight_number": info[0].text
+                }
+            return resp
+        else:
+            r.raise_for_status()
+    except Exception as e:
+        return resp
