@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 import logging
 import json
 import time
+from datetime import date
 
 logger = logging.getLogger()
 
@@ -474,5 +475,62 @@ def get_sia_info(tracking_number):
             return resp
         else:
             page.raise_for_status()
+    except Exception as e:
+        return resp
+
+
+def get_ca_info(tracking_number):
+    user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36"
+    headers = {
+        "user-agent": user_agent
+    }
+    url = "https://www.aircanada.com/cargo/en/test/trackTrace.php?awb={}".format(tracking_number)
+    r = requests.get(url=url, headers=headers)
+    resp = {}
+    try:
+        if r.status_code == 200:
+            soup = BeautifulSoup(r.text, 'html.parser')
+            booking_info_spans = soup.find("div", class_="booking-info").find_all("span")
+            weight_num_pck = booking_info_spans[1].text
+            flight_detail = booking_info_spans[3].text
+            weight_num_pck_list = weight_num_pck.split("/")
+            flight_detail_list = flight_detail.split("|")
+            origin = flight_detail_list[0].split("-")[0].replace(" ","")
+            dest = flight_detail_list[0].split("-")[1].replace(" ","")
+            number_of_package = weight_num_pck_list[0].replace(" pcs", "")
+            weight = weight_num_pck_list[1].replace("kg\xa0","")
+            flight_data = []
+            for data in flight_detail_list[1].split(","):
+                route = data.split(" ")
+                flight_data.append(
+                    {
+                        "flight_no": route[1].split("/")[0],
+                        "event_date": route[1].split("/")[1],
+                        "from": route[2].split("-")[0],
+                        "to": route[2].split("-")[1],
+                        "status": route[3]
+                    }
+                )
+            resp = {
+                "tracking_number": tracking_number,
+                "origin": origin,
+                "destination": dest,
+                "number_of_package": number_of_package,
+                "weight": weight,
+            }
+            for data in flight_data:
+                if data["from"] == origin:
+                    resp.update({
+                        "departure_flight_number": data["flight_no"],
+                        "departure_date": "{} {} {} 00:00:00".format(data["event_date"][:2], data["event_date"][2:], date.today().year)
+                    })
+                if data["to"] == dest:
+                    resp.update({
+                        "arrival_flight_number": data["flight_no"],
+                        "arrival_date": "{} {} {} 00:00:00".format(data["event_date"][:2], data["event_date"][2:], date.today().year)
+                    })
+            return resp
+        else:
+            r.raise_for_status()
     except Exception as e:
         return resp
